@@ -5,6 +5,7 @@ import sys
 
 DATABASE = "attendance.db"
 FACE_DIR = "faces"
+os.makedirs(FACE_DIR, exist_ok=True)
 if len(sys.argv) < 2:
     print("No class session selected.")
     raise SystemExit
