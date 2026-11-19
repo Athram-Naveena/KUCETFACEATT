@@ -15,8 +15,8 @@ DATABASE = "attendance.db"
 FACE_DIR = "faces"
 os.makedirs(FACE_DIR, exist_ok=True)
 
-TEACHER_USER = os.environ.get("TEACHER_USER", "admin")
-TEACHER_PASS = os.environ.get("TEACHER_PASS", "kucet123")
+DEFAULT_TEACHER_USER = os.environ.get("TEACHER_USER", "admin")
+DEFAULT_TEACHER_PASS = os.environ.get("TEACHER_PASS", "kucet123")
 
 DETECTOR_MODEL = "models/face_detection_yunet_2023mar.onnx"
 RECOGNIZER_MODEL = "models/face_recognition_sface_2021dec.onnx"
@@ -32,6 +32,15 @@ def get_models():
 
 def create_database():
     conn = sqlite3.connect(DATABASE)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS teachers (
+            teacher_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            department TEXT NOT NULL,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL
+        )
+    """)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS students (
             student_id TEXT PRIMARY KEY,
@@ -74,10 +83,11 @@ create_database()
 def get_nav():
     links = '<a href="/" style="color:white;margin-right:15px;text-decoration:none;font-weight:bold;">Home</a>'
     if session.get("role") == "teacher":
+        t_name = session.get("teacher_name", "Teacher")
         links += (
             '<a href="/teacher" style="color:white;margin-right:15px;text-decoration:none;font-weight:bold;">Teacher Portal</a>'
-            '<a href="/register_student" style="color:white;margin-right:15px;text-decoration:none;font-weight:bold;">Register Student</a>'
-            '<a href="/logout" style="color:#ff8a80;text-decoration:none;font-weight:bold;">Logout (Teacher)</a>'
+            '<a href="/register_student" style="color:white;margin-right:15px;text-decoration:none;font-weight:bold;">Manage Students</a>'
+            f'<a href="/logout" style="color:#ff8a80;text-decoration:none;font-weight:bold;">Logout ({t_name})</a>'
         )
     elif session.get("role") == "parent":
         links += (
@@ -87,6 +97,7 @@ def get_nav():
     else:
         links += (
             '<a href="/teacher_login" style="color:white;margin-right:15px;text-decoration:none;font-weight:bold;">Teacher Login</a>'
+            '<a href="/teacher_register" style="color:white;margin-right:15px;text-decoration:none;font-weight:bold;">Teacher Register</a>'
             '<a href="/parent_login" style="color:white;text-decoration:none;font-weight:bold;">Parent Login</a>'
         )
     return f'<div style="background:#243b55;padding:12px;border-radius:8px;margin-bottom:20px;text-align:center;">{links}</div>'
@@ -103,24 +114,72 @@ def home():
         h1 {{ color: #243b55; }}
         .container {{ display: flex; justify-content: center; flex-wrap: wrap; gap: 25px; margin-top: 30px; }}
         .portal {{ background: white; padding: 30px; width: 260px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }}
-        .btn {{ display: inline-block; background: #243b55; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-top: 10px; }}
+        .btn {{ display: inline-block; background: #243b55; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 6px 4px; }}
+        .btn-outline {{ display: inline-block; background: #198754; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 6px 4px; }}
     </style>
 </head>
 <body>
     {get_nav()}
     <h1>Student Attendance and Risk Analysis System</h1>
-    <p>Select your login portal to continue</p>
+    <p>Select your portal to continue</p>
     <div class="container">
         <div class="portal">
             <h2>Teacher Portal</h2>
-            <p>Register students, create class sessions, scan class faces, and export reports.</p>
+            <p>Register faculty account, manage students, scan class faces, and export reports.</p>
             <a class="btn" href="/teacher_login">Teacher Login</a>
+            <a class="btn-outline" href="/teacher_register">New Teacher</a>
         </div>
         <div class="portal">
             <h2>Parent Portal</h2>
             <p>Log in with your registered mobile number and student ID to view attendance.</p>
             <a class="btn" href="/parent_login">Parent Login</a>
         </div>
+    </div>
+</body>
+</html>"""
+
+
+@app.route("/teacher_register", methods=["GET", "POST"])
+def teacher_register():
+    error = ""
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        department = request.form.get("department", "").strip()
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "").strip()
+
+        if not all([name, department, username, password]):
+            error = "<p style='color:red;'>All fields are required.</p>"
+        else:
+            conn = sqlite3.connect(DATABASE)
+            try:
+                conn.execute(
+                    "INSERT INTO teachers (name, department, username, password) VALUES (?, ?, ?, ?)",
+                    (name, department, username, password),
+                )
+                conn.commit()
+                conn.close()
+                return redirect(url_for("teacher_login"))
+            except sqlite3.IntegrityError:
+                conn.close()
+                error = "<p style='color:red;'>Username already taken. Choose another.</p>"
+
+    return f"""<!DOCTYPE html>
+<html>
+<head><title>Register New Teacher</title></head>
+<body style="font-family:Arial;background:#f0f4f8;padding:30px;text-align:center;">
+    {get_nav()}
+    <div style="background:white;padding:30px;max-width:400px;margin:30px auto;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+        <h2>Register New Teacher</h2>
+        {error}
+        <form method="POST">
+            <input type="text" name="name" placeholder="Full Name (e.g. Dr. R. Kumar)" required style="width:90%;padding:10px;margin:8px 0;"><br>
+            <input type="text" name="department" placeholder="Department (e.g. ECE)" required style="width:90%;padding:10px;margin:8px 0;"><br>
+            <input type="text" name="username" placeholder="Create Username" required style="width:90%;padding:10px;margin:8px 0;"><br>
+            <input type="password" name="password" placeholder="Create Password" required style="width:90%;padding:10px;margin:8px 0;"><br>
+            <button type="submit" style="background:#198754;color:white;padding:10px 25px;border:none;border-radius:6px;cursor:pointer;margin-top:10px;">Create Teacher Account</button>
+        </form>
+        <p style="margin-top:15px;">Already registered? <a href="/teacher_login">Login here</a></p>
     </div>
 </body>
 </html>"""
@@ -134,8 +193,22 @@ def teacher_login():
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "").strip()
-        if username == TEACHER_USER and password == TEACHER_PASS:
+
+        if username == DEFAULT_TEACHER_USER and password == DEFAULT_TEACHER_PASS:
             session["role"] = "teacher"
+            session["teacher_name"] = "Admin"
+            return redirect(url_for("teacher"))
+
+        conn = sqlite3.connect(DATABASE)
+        row = conn.execute(
+            "SELECT name FROM teachers WHERE username = ? AND password = ?",
+            (username, password),
+        ).fetchone()
+        conn.close()
+
+        if row:
+            session["role"] = "teacher"
+            session["teacher_name"] = row[0]
             return redirect(url_for("teacher"))
         error = "<p style='color:red;'>Invalid Teacher Username or Password.</p>"
 
@@ -152,6 +225,7 @@ def teacher_login():
             <input type="password" name="password" placeholder="Password" required style="width:90%;padding:10px;margin:8px 0;"><br>
             <button type="submit" style="background:#243b55;color:white;padding:10px 25px;border:none;border-radius:6px;cursor:pointer;margin-top:10px;">Login</button>
         </form>
+        <p style="margin-top:15px;">New faculty member? <a href="/teacher_register">Register here</a></p>
     </div>
 </body>
 </html>"""
@@ -209,22 +283,27 @@ def register_student():
 
     conn = sqlite3.connect(DATABASE)
     students = conn.execute(
-        "SELECT student_id, name, department, parent_name, parent_mobile FROM students"
+        "SELECT student_id, name, department, parent_name, parent_mobile FROM students ORDER BY student_id"
     ).fetchall()
     conn.close()
 
     rows = ""
     for s in students:
-        photo_status = "Registered" if os.path.exists(os.path.join(FACE_DIR, f"{s[0]}_1.jpg")) else "No Photo"
+        safe_id = "".join(c for c in s[0] if c.isalnum() or c in "-_")
+        photo_status = "Registered" if os.path.exists(os.path.join(FACE_DIR, f"{safe_id}_1.jpg")) else "No Photo"
         rows += (
             f"<tr><td>{s[0]}</td><td>{s[1]}</td><td>{s[2]}</td>"
-            f"<td>{s[3] or ''}</td><td>{s[4] or ''}</td><td>{photo_status}</td></tr>"
+            f"<td>{s[3] or ''}</td><td>{s[4] or ''}</td><td>{photo_status}</td>"
+            f"<td><form method='POST' action='/delete_student' onsubmit=\"return confirm('Remove passed-out student {s[1]} ({s[0]}) and all their records?');\">"
+            f"<input type='hidden' name='student_id' value='{s[0]}'>"
+            f"<button type='submit' style='background:#d32f2f;color:white;padding:6px 12px;border:none;border-radius:4px;cursor:pointer;'>Remove</button>"
+            f"</form></td></tr>"
         )
 
     return f"""<!DOCTYPE html>
 <html>
 <head>
-    <title>Register Student</title>
+    <title>Manage &amp; Register Students</title>
     <style>
         body {{ font-family: Arial, sans-serif; margin: 30px; background: #f4f6f9; }}
         h1 {{ color: #243b55; }}
@@ -237,8 +316,9 @@ def register_student():
 </head>
 <body>
     {get_nav()}
-    <h1>Register Student &amp; Capture Face (Teacher Access Only)</h1>
+    <h1>Manage Students (Register New / Remove Passed-Out)</h1>
     <div class="box">
+        <h2>Register New Student &amp; Capture Face</h2>
         <form id="regForm" method="POST" action="/register">
             <input name="student_id" placeholder="Student ID" required>
             <input name="name" placeholder="Student Name" required>
@@ -255,7 +335,7 @@ def register_student():
         </form>
     </div>
 
-    <h2>Registered Students</h2>
+    <h2>Enrolled Students ({len(students)})</h2>
     <table>
         <tr>
             <th>Student ID</th>
@@ -264,6 +344,7 @@ def register_student():
             <th>Parent Name</th>
             <th>Parent Mobile</th>
             <th>Face Status</th>
+            <th>Action</th>
         </tr>
         {rows}
     </table>
@@ -322,6 +403,30 @@ def register():
         safe_id = "".join(c for c in student_id if c.isalnum() or c in "-_")
         with open(os.path.join(FACE_DIR, f"{safe_id}_1.jpg"), "wb") as f:
             f.write(img_bytes)
+
+    return redirect(url_for("register_student"))
+
+
+@app.route("/delete_student", methods=["POST"])
+def delete_student():
+    if session.get("role") != "teacher":
+        return redirect(url_for("teacher_login"))
+
+    student_id = request.form.get("student_id", "").strip()
+    if student_id:
+        conn = sqlite3.connect(DATABASE)
+        conn.execute("DELETE FROM attendance_records WHERE student_id = ?", (student_id,))
+        conn.execute("DELETE FROM students WHERE student_id = ?", (student_id,))
+        conn.commit()
+        conn.close()
+
+        safe_id = "".join(c for c in student_id if c.isalnum() or c in "-_")
+        for fn in os.listdir(FACE_DIR):
+            if fn.startswith(f"{safe_id}_"):
+                try:
+                    os.remove(os.path.join(FACE_DIR, fn))
+                except OSError:
+                    pass
 
     return redirect(url_for("register_student"))
 
@@ -395,8 +500,8 @@ def teacher():
 <head><title>Teacher Portal</title></head>
 <body style="font-family:Arial;text-align:center;padding:30px;background:#f4f6f9;">
     {get_nav()}
-    <h1>Teacher Portal</h1>
-    <p><a href="/register_student" style="background:#198754;color:white;padding:10px 18px;text-decoration:none;border-radius:6px;font-weight:bold;">+ Register New Student &amp; Face</a></p>
+    <h1>Teacher Portal — Welcome, {session.get('teacher_name', 'Teacher')}</h1>
+    <p><a href="/register_student" style="background:#198754;color:white;padding:10px 18px;text-decoration:none;border-radius:6px;font-weight:bold;">Manage Students (Add New / Remove Passed-Out)</a></p>
 
     <h2>Create Class Session</h2>
     <form method="POST">
