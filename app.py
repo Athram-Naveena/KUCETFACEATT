@@ -1,4 +1,4 @@
-from flask import Flask, request, redirect, url_for, render_template, jsonify, send_file
+from flask import Flask, request, redirect, url_for, session, jsonify, send_file
 import sqlite3
 import math
 import io
@@ -9,9 +9,14 @@ import numpy as np
 from openpyxl import Workbook
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY", "kucet_face_att_secret_2026")
+
 DATABASE = "attendance.db"
 FACE_DIR = "faces"
 os.makedirs(FACE_DIR, exist_ok=True)
+
+TEACHER_USER = os.environ.get("TEACHER_USER", "admin")
+TEACHER_PASS = os.environ.get("TEACHER_PASS", "kucet123")
 
 DETECTOR_MODEL = "models/face_detection_yunet_2023mar.onnx"
 RECOGNIZER_MODEL = "models/face_recognition_sface_2021dec.onnx"
@@ -65,19 +70,143 @@ def create_database():
 
 create_database()
 
-NAV = """
-<div style="background:#243b55;padding:12px;border-radius:8px;margin-bottom:20px;">
-    <a href="/" style="color:white;margin-right:15px;text-decoration:none;font-weight:bold;">Register Student</a>
-    <a href="/dashboard" style="color:white;margin-right:15px;text-decoration:none;font-weight:bold;">Dashboard</a>
-    <a href="/teacher" style="color:white;margin-right:15px;text-decoration:none;font-weight:bold;">Teacher Portal</a>
-    <a href="/student" style="color:white;margin-right:15px;text-decoration:none;font-weight:bold;">Student Portal</a>
-    <a href="/parent" style="color:white;margin-right:15px;text-decoration:none;font-weight:bold;">Parent Portal</a>
-</div>
-"""
+
+def get_nav():
+    links = '<a href="/" style="color:white;margin-right:15px;text-decoration:none;font-weight:bold;">Home</a>'
+    if session.get("role") == "teacher":
+        links += (
+            '<a href="/teacher" style="color:white;margin-right:15px;text-decoration:none;font-weight:bold;">Teacher Portal</a>'
+            '<a href="/register_student" style="color:white;margin-right:15px;text-decoration:none;font-weight:bold;">Register Student</a>'
+            '<a href="/logout" style="color:#ff8a80;text-decoration:none;font-weight:bold;">Logout (Teacher)</a>'
+        )
+    elif session.get("role") == "parent":
+        links += (
+            '<a href="/parent" style="color:white;margin-right:15px;text-decoration:none;font-weight:bold;">Parent Dashboard</a>'
+            '<a href="/logout" style="color:#ff8a80;text-decoration:none;font-weight:bold;">Logout (Parent)</a>'
+        )
+    else:
+        links += (
+            '<a href="/teacher_login" style="color:white;margin-right:15px;text-decoration:none;font-weight:bold;">Teacher Login</a>'
+            '<a href="/parent_login" style="color:white;text-decoration:none;font-weight:bold;">Parent Login</a>'
+        )
+    return f'<div style="background:#243b55;padding:12px;border-radius:8px;margin-bottom:20px;text-align:center;">{links}</div>'
 
 
 @app.route("/")
 def home():
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>KUCET Face Attendance System</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; background: #f0f4f8; padding: 30px; text-align: center; }}
+        h1 {{ color: #243b55; }}
+        .container {{ display: flex; justify-content: center; flex-wrap: wrap; gap: 25px; margin-top: 30px; }}
+        .portal {{ background: white; padding: 30px; width: 260px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }}
+        .btn {{ display: inline-block; background: #243b55; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-top: 10px; }}
+    </style>
+</head>
+<body>
+    {get_nav()}
+    <h1>Student Attendance and Risk Analysis System</h1>
+    <p>Select your login portal to continue</p>
+    <div class="container">
+        <div class="portal">
+            <h2>Teacher Portal</h2>
+            <p>Register students, create class sessions, scan class faces, and export reports.</p>
+            <a class="btn" href="/teacher_login">Teacher Login</a>
+        </div>
+        <div class="portal">
+            <h2>Parent Portal</h2>
+            <p>Log in with your registered mobile number and student ID to view attendance.</p>
+            <a class="btn" href="/parent_login">Parent Login</a>
+        </div>
+    </div>
+</body>
+</html>"""
+
+
+@app.route("/teacher_login", methods=["GET", "POST"])
+def teacher_login():
+    if session.get("role") == "teacher":
+        return redirect(url_for("teacher"))
+    error = ""
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "").strip()
+        if username == TEACHER_USER and password == TEACHER_PASS:
+            session["role"] = "teacher"
+            return redirect(url_for("teacher"))
+        error = "<p style='color:red;'>Invalid Teacher Username or Password.</p>"
+
+    return f"""<!DOCTYPE html>
+<html>
+<head><title>Teacher Login</title></head>
+<body style="font-family:Arial;background:#f0f4f8;padding:30px;text-align:center;">
+    {get_nav()}
+    <div style="background:white;padding:30px;max-width:380px;margin:30px auto;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+        <h2>Teacher Login</h2>
+        {error}
+        <form method="POST">
+            <input type="text" name="username" placeholder="Teacher Username" required style="width:90%;padding:10px;margin:8px 0;"><br>
+            <input type="password" name="password" placeholder="Password" required style="width:90%;padding:10px;margin:8px 0;"><br>
+            <button type="submit" style="background:#243b55;color:white;padding:10px 25px;border:none;border-radius:6px;cursor:pointer;margin-top:10px;">Login</button>
+        </form>
+    </div>
+</body>
+</html>"""
+
+
+@app.route("/parent_login", methods=["GET", "POST"])
+def parent_login():
+    if session.get("role") == "parent":
+        return redirect(url_for("parent"))
+    error = ""
+    if request.method == "POST":
+        student_id = request.form.get("student_id", "").strip()
+        parent_mobile = request.form.get("parent_mobile", "").strip()
+        conn = sqlite3.connect(DATABASE)
+        student = conn.execute(
+            "SELECT student_id FROM students WHERE student_id = ? AND parent_mobile = ?",
+            (student_id, parent_mobile),
+        ).fetchone()
+        conn.close()
+        if student:
+            session["role"] = "parent"
+            session["student_id"] = student_id
+            return redirect(url_for("parent"))
+        error = "<p style='color:red;'>No matching Student ID and Parent Mobile found.</p>"
+
+    return f"""<!DOCTYPE html>
+<html>
+<head><title>Parent Login</title></head>
+<body style="font-family:Arial;background:#f0f4f8;padding:30px;text-align:center;">
+    {get_nav()}
+    <div style="background:white;padding:30px;max-width:380px;margin:30px auto;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+        <h2>Parent Login</h2>
+        <p style="font-size:13px;color:#555;">Enter your registered Parent Mobile Number and your child's Student ID.</p>
+        {error}
+        <form method="POST">
+            <input type="text" name="student_id" placeholder="Student ID (e.g. 23567T1554)" required style="width:90%;padding:10px;margin:8px 0;"><br>
+            <input type="text" name="parent_mobile" placeholder="Registered Parent Mobile Number" required style="width:90%;padding:10px;margin:8px 0;"><br>
+            <button type="submit" style="background:#243b55;color:white;padding:10px 25px;border:none;border-radius:6px;cursor:pointer;margin-top:10px;">View Child Attendance</button>
+        </form>
+    </div>
+</body>
+</html>"""
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("home"))
+
+
+@app.route("/register_student")
+def register_student():
+    if session.get("role") != "teacher":
+        return redirect(url_for("teacher_login"))
+
     conn = sqlite3.connect(DATABASE)
     students = conn.execute(
         "SELECT student_id, name, department, parent_name, parent_mobile FROM students"
@@ -95,7 +224,7 @@ def home():
     return f"""<!DOCTYPE html>
 <html>
 <head>
-    <title>Student Attendance System</title>
+    <title>Register Student</title>
     <style>
         body {{ font-family: Arial, sans-serif; margin: 30px; background: #f4f6f9; }}
         h1 {{ color: #243b55; }}
@@ -107,10 +236,9 @@ def home():
     </style>
 </head>
 <body>
-    {NAV}
-    <h1>Student Attendance and Risk Analysis System</h1>
+    {get_nav()}
+    <h1>Register Student &amp; Capture Face (Teacher Access Only)</h1>
     <div class="box">
-        <h2>Register Student &amp; Capture Face</h2>
         <form id="regForm" method="POST" action="/register">
             <input name="student_id" placeholder="Student ID" required>
             <input name="name" placeholder="Student Name" required>
@@ -161,6 +289,9 @@ def home():
 
 @app.route("/register", methods=["POST"])
 def register():
+    if session.get("role") != "teacher":
+        return redirect(url_for("teacher_login"))
+
     student_id = request.form["student_id"].strip()
     name = request.form["name"].strip()
     department = request.form["department"].strip()
@@ -192,16 +323,14 @@ def register():
         with open(os.path.join(FACE_DIR, f"{safe_id}_1.jpg"), "wb") as f:
             f.write(img_bytes)
 
-    return redirect(url_for("home"))
-
-
-@app.route("/dashboard")
-def dashboard():
-    return render_template("dashboard.html")
+    return redirect(url_for("register_student"))
 
 
 @app.route("/teacher", methods=["GET", "POST"])
 def teacher():
+    if session.get("role") != "teacher":
+        return redirect(url_for("teacher_login"))
+
     if request.method == "POST":
         action = request.form.get("action")
         conn = sqlite3.connect(DATABASE)
@@ -265,8 +394,10 @@ def teacher():
     return f"""<html>
 <head><title>Teacher Portal</title></head>
 <body style="font-family:Arial;text-align:center;padding:30px;background:#f4f6f9;">
-    {NAV}
+    {get_nav()}
     <h1>Teacher Portal</h1>
+    <p><a href="/register_student" style="background:#198754;color:white;padding:10px 18px;text-decoration:none;border-radius:6px;font-weight:bold;">+ Register New Student &amp; Face</a></p>
+
     <h2>Create Class Session</h2>
     <form method="POST">
         <input type="text" name="subject" placeholder="Subject Name" required>
@@ -275,13 +406,13 @@ def teacher():
         <button type="submit">Create Session</button>
     </form>
 
-    <h2>Start Live Browser Face Recognition</h2>
+    <h2>Start Multi-Student Face Recognition</h2>
     <form action="/start_attendance" method="POST">
         <select name="session_id" required>
             <option value="">Select Class Session</option>
             {opts}
         </select>
-        <button type="submit">Open Camera Scanner</button>
+        <button type="submit">Open HD Camera Scanner</button>
     </form>
 
     <h2>Sessions &amp; Attendance</h2>
@@ -295,6 +426,8 @@ def teacher():
 
 @app.route("/start_attendance", methods=["POST"])
 def start_attendance():
+    if session.get("role") != "teacher":
+        return redirect(url_for("teacher_login"))
     session_id = request.form.get("session_id")
     if not session_id:
         return redirect(url_for("teacher"))
@@ -303,33 +436,55 @@ def start_attendance():
 
 @app.route("/scan/<int:session_id>")
 def scan_page(session_id):
+    if session.get("role") != "teacher":
+        return redirect(url_for("teacher_login"))
     return f"""<!DOCTYPE html>
 <html>
-<head><title>Live Face Attendance</title></head>
-<body style="font-family:Arial;text-align:center;padding:30px;background:#f4f6f9;">
-    {NAV}
-    <h1>Live Face Recognition Scanner (Session {session_id})</h1>
-    <video id="video" width="480" height="360" autoplay playsinline style="border:3px solid #243b55;border-radius:10px;"></video>
-    <canvas id="canvas" width="480" height="360" style="display:none;"></canvas>
-    <h2 id="status" style="color:#243b55;">Starting camera...</h2>
+<head><title>Live Multi-Student Face Attendance</title></head>
+<body style="font-family:Arial;text-align:center;padding:20px;background:#f4f6f9;">
+    {get_nav()}
+    <h1>Multi-Student Face Scanner (Session {session_id})</h1>
+    <div style="position:relative;display:inline-block;">
+        <video id="video" width="640" height="480" autoplay playsinline style="border:3px solid #243b55;border-radius:10px;"></video>
+        <canvas id="overlay" width="640" height="480" style="position:absolute;left:0;top:0;pointer-events:none;"></canvas>
+    </div>
+    <canvas id="capture" width="1280" height="720" style="display:none;"></canvas>
+    <h2 id="status" style="color:#243b55;">Starting HD camera...</h2>
     <p><a href="/teacher">Finish &amp; Return to Teacher Portal</a></p>
 
     <script>
         const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
+        const overlay = document.getElementById('overlay');
+        const capture = document.getElementById('capture');
         const statusEl = document.getElementById('status');
+        const octx = overlay.getContext('2d');
 
-        navigator.mediaDevices.getUserMedia({{ video: true }}).then(stream => {{
+        navigator.mediaDevices.getUserMedia({{ video: {{ width: {{ ideal: 1280 }}, height: {{ ideal: 720 }} }} }}).then(stream => {{
             video.srcObject = stream;
-            statusEl.innerText = 'Scanning faces every 2 seconds...';
+            statusEl.innerText = 'Scanning all faces in frame every 2 seconds...';
             setInterval(() => {{
-                canvas.getContext('2d').drawImage(video, 0, 0, 480, 360);
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                capture.getContext('2d').drawImage(video, 0, 0, 1280, 720);
+                const dataUrl = capture.toDataURL('image/jpeg', 0.85);
                 fetch('/api/recognize', {{
                     method: 'POST',
                     headers: {{ 'Content-Type': 'application/json' }},
                     body: JSON.stringify({{ session_id: {session_id}, image: dataUrl }})
-                }}).then(r => r.json()).then(res => {{ statusEl.innerText = res.message; }});
+                }}).then(r => r.json()).then(res => {{
+                    statusEl.innerText = res.message;
+                    octx.clearRect(0, 0, overlay.width, overlay.height);
+                    if (res.boxes) {{
+                        const sx = overlay.width / 1280;
+                        const sy = overlay.height / 720;
+                        res.boxes.forEach(b => {{
+                            octx.strokeStyle = b.matched ? '#00c853' : '#ff1744';
+                            octx.lineWidth = 3;
+                            octx.strokeRect(b.x * sx, b.y * sy, b.w * sx, b.h * sy);
+                            octx.fillStyle = b.matched ? '#00c853' : '#ff1744';
+                            octx.font = 'bold 14px Arial';
+                            octx.fillText(b.label, b.x * sx, Math.max(16, b.y * sy - 6));
+                        }});
+                    }}
+                }});
             }}, 2000);
         }}).catch(err => statusEl.innerText = 'Camera error: ' + err);
     </script>
@@ -339,20 +494,23 @@ def scan_page(session_id):
 
 @app.route("/api/recognize", methods=["POST"])
 def api_recognize():
+    if session.get("role") != "teacher":
+        return jsonify({"message": "Unauthorized", "boxes": []}), 403
+
     data = request.get_json()
     session_id = data.get("session_id")
     img_data = data.get("image", "")
     if "," not in img_data:
-        return jsonify({"message": "No frame received"})
+        return jsonify({"message": "No frame received", "boxes": []})
 
     detector, recognizer = get_models()
     if detector is None:
-        return jsonify({"message": "ONNX models missing on server"})
+        return jsonify({"message": "ONNX models missing on server", "boxes": []})
 
     img_bytes = base64.b64decode(img_data.split(",", 1)[1])
     frame = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_COLOR)
     if frame is None:
-        return jsonify({"message": "Invalid image frame"})
+        return jsonify({"message": "Invalid image frame", "boxes": []})
 
     conn = sqlite3.connect(DATABASE)
     students = dict(conn.execute("SELECT student_id, name FROM students").fetchall())
@@ -374,16 +532,18 @@ def api_recognize():
 
     if not known:
         conn.close()
-        return jsonify({"message": "No registered face photos found. Register a student with camera first."})
+        return jsonify({"message": "No registered face photos found.", "boxes": []})
 
     detector.setInputSize((frame.shape[1], frame.shape[0]))
     _, faces = detector.detect(frame)
     if faces is None or len(faces) == 0:
         conn.close()
-        return jsonify({"message": "No face detected in camera..."})
+        return jsonify({"message": "No faces detected in frame...", "boxes": []})
 
     marked = []
+    boxes = []
     for f in faces:
+        x, y, w, h = map(int, f[:4])
         feat = recognizer.feature(recognizer.alignCrop(frame, f))
         best_id, best_score = None, -1.0
         for sid, feats in known.items():
@@ -395,91 +555,107 @@ def api_recognize():
                 "INSERT OR IGNORE INTO attendance_records (session_id, student_id, status) VALUES (?, ?, 'Present')",
                 (session_id, best_id),
             )
+            label = f"{students[best_id]} ({best_score:.2f})"
             marked.append(f"{students[best_id]} ({best_id})")
+            boxes.append({"x": x, "y": y, "w": w, "h": h, "label": label, "matched": True})
+        else:
+            boxes.append({"x": x, "y": y, "w": w, "h": h, "label": f"Unknown ({best_score:.2f})", "matched": False})
 
     conn.commit()
     conn.close()
 
-    if marked:
-        return jsonify({"message": "Present Marked: " + ", ".join(marked)})
-    return jsonify({"message": "Face detected, but did not match any registered student."})
-
-
-@app.route("/student")
-def student_portal():
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row
-    students = conn.execute(
-        """
-        SELECT s.student_id, s.name, s.department,
-               COUNT(ar.record_id) AS total_classes,
-               SUM(CASE WHEN ar.status = 'Present' THEN 1 ELSE 0 END) AS present_count
-        FROM students s
-        LEFT JOIN attendance_records ar ON s.student_id = ar.student_id
-        GROUP BY s.student_id
-        """
-    ).fetchall()
-
-    html = (
-        f"<html><head><title>Student Portal</title>"
-        f"<style>body{{font-family:Arial;background:#f2f2f2;padding:20px;}} "
-        f".card{{background:white;padding:20px;margin:15px auto;max-width:550px;border-radius:10px;}}</style>"
-        f"</head><body>{NAV}<h1>Student Attendance Portal</h1>"
-    )
-    for s in students:
-        total, present = s["total_classes"], s["present_count"] or 0
-        pct = (present / total * 100) if total > 0 else 0
-        if total == 0:
-            msg, rhtml = "No attendance records available yet.", ""
-        elif pct < 75:
-            req = math.ceil(3 * total - 4 * present)
-            msg = "LOW ATTENDANCE RISK: Below 75%."
-            rhtml = (
-                f'<div style="background:#ffe0e0;padding:15px;border-radius:8px;color:#a00000;">'
-                f'<h3>Attendance Risk Alert!</h3><p>Attend the next <b>{req} consecutive classes</b> to reach 75%.</p></div>'
-            )
-        else:
-            msg, rhtml = "Good! Your attendance is at or above 75%.", '<p style="color:green;">Good attendance!</p>'
-
-        html += (
-            f'<div class="card"><h2>{s["name"]}</h2><p>ID: {s["student_id"]} | Dept: {s["department"]}</p>'
-            f'<p>Present: {present} / {total} ({pct:.2f}%)</p><p><b>{msg}</b></p>{rhtml}</div>'
-        )
-    conn.close()
-    return html + "</body></html>"
+    msg = f"Detected {len(faces)} face(s) | Marked Present: {', '.join(marked)}" if marked else f"Detected {len(faces)} face(s), none matched yet."
+    return jsonify({"message": msg, "boxes": boxes})
 
 
 @app.route("/parent")
 def parent():
+    if session.get("role") != "parent" or not session.get("student_id"):
+        return redirect(url_for("parent_login"))
+
+    sid = session["student_id"]
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
-    students = conn.execute(
+    s = conn.execute(
         """
-        SELECT s.student_id, s.name, s.department,
-               (SELECT COUNT(*) FROM class_sessions) AS total_classes,
-               (SELECT COUNT(*) FROM attendance_records ar WHERE ar.student_id = s.student_id AND ar.status = 'Present') AS present_count
+        SELECT s.student_id, s.name, s.department, s.parent_name,
+               COUNT(ar.record_id) AS total_classes,
+               SUM(CASE WHEN ar.status = 'Present' THEN 1 ELSE 0 END) AS present_count
         FROM students s
+        LEFT JOIN attendance_records ar ON s.student_id = ar.student_id
+        WHERE s.student_id = ?
+        GROUP BY s.student_id
+        """,
+        (sid,),
+    ).fetchone()
+
+    subject_records = conn.execute(
         """
+        SELECT cs.subject,
+               COUNT(ar.record_id) AS total,
+               SUM(CASE WHEN ar.status = 'Present' THEN 1 ELSE 0 END) AS present
+        FROM attendance_records ar
+        JOIN class_sessions cs ON ar.session_id = cs.session_id
+        WHERE ar.student_id = ?
+        GROUP BY cs.subject
+        """,
+        (sid,),
     ).fetchall()
     conn.close()
 
-    phtml = "".join(
-        f'<div style="background:white;padding:20px;margin:15px auto;max-width:450px;border-radius:10px;">'
-        f'<h2>{s["name"]}</h2><p>ID: {s["student_id"]} | Dept: {s["department"]}</p>'
-        f'<p>Attended: {s["present_count"]} / {s["total_classes"]} '
-        f'({(s["present_count"]/s["total_classes"]*100 if s["total_classes"]>0 else 0):.2f}%)</p></div>'
-        for s in students
-    ) or "<p>No student records available.</p>"
+    if not s:
+        session.clear()
+        return redirect(url_for("parent_login"))
 
-    return (
-        f"<!DOCTYPE html><html><head><title>Parent Portal</title></head>"
-        f"<body style='font-family:Arial;text-align:center;padding:30px;background:#f0f4f8;'>"
-        f"{NAV}<h1>Parent Portal</h1>{phtml}</body></html>"
-    )
+    total = s["total_classes"]
+    present = s["present_count"] or 0
+    absent = total - present
+    pct = (present / total * 100) if total > 0 else 0
+
+    if total == 0:
+        alert_html = "<p>No class sessions recorded yet.</p>"
+    elif pct < 75:
+        req = math.ceil(3 * total - 4 * present)
+        alert_html = (
+            f'<div style="background:#ffe0e0;padding:15px;border-radius:8px;color:#a00000;margin:15px 0;">'
+            f'<h3>Low Attendance Alert (Below 75%)</h3>'
+            f'<p>Your child must attend the next <b>{req} consecutive classes</b> to reach 75%.</p></div>'
+        )
+    else:
+        alert_html = '<p style="color:green;font-weight:bold;">Good Standing: Attendance is 75% or above.</p>'
+
+    sub_html = "".join(
+        f"<p><b>{r['subject']}:</b> {(r['present']/r['total']*100 if r['total']>0 else 0):.2f}% ({r['present']}/{r['total']})</p>"
+        for r in subject_records
+    ) or "<p>No subject records yet.</p>"
+
+    return f"""<!DOCTYPE html>
+<html>
+<head><title>Parent Portal</title></head>
+<body style="font-family:Arial;text-align:center;padding:30px;background:#f0f4f8;">
+    {get_nav()}
+    <h1>Parent Attendance Dashboard</h1>
+    <div style="background:white;padding:25px;margin:20px auto;max-width:480px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+        <h2>{s['name']}</h2>
+        <p><b>Student ID:</b> {s['student_id']} | <b>Department:</b> {s['department']}</p>
+        <p><b>Parent:</b> {s['parent_name'] or ''}</p>
+        <hr>
+        <p><b>Total Classes:</b> {total} | <b>Present:</b> {present} | <b>Absent:</b> {absent}</p>
+        <h2>Overall Attendance: {pct:.2f}%</h2>
+        {alert_html}
+        <hr>
+        <h3>Subject-wise Breakdown</h3>
+        {sub_html}
+    </div>
+</body>
+</html>"""
 
 
 @app.route("/export_excel/<path:subject>")
 def export_excel(subject):
+    if session.get("role") != "teacher":
+        return redirect(url_for("teacher_login"))
+
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     records = conn.execute(
