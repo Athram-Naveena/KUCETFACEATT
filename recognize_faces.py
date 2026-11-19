@@ -17,8 +17,8 @@ if len(sys.argv) != 2:
 
 SESSION_ID = sys.argv[1]
 
-DETECTOR_MODEL = "face_detection_yunet_2023mar.onnx"
-RECOGNIZER_MODEL = "face_recognition_sface_2021dec.onnx"
+DETECTOR_MODEL = "models/face_detection_yunet_2023mar.onnx"
+RECOGNIZER_MODEL = "models/face_recognition_sface_2021dec.onnx"
 
 # Create YuNet face detector
 detector = cv2.FaceDetectorYN.create(
