@@ -136,7 +136,8 @@ def home():
         </style>
     </head>
     <body>
-        <h1>Student Attendance and Risk Analysis System</h1>
+        <div style="background:#243b55;padding:12px;border-radius:8px;margin-bottom:20px;"><a href="/dashboard" style="color:white;margin-right:15px;">Dashboard</a><a href="/teacher" style="color:white;margin-right:15px;">Teacher Portal</a><a href="/student" style="color:white;margin-right:15px;">Student Portal</a><a href="/parent" style="color:white;margin-right:15px;">Parent Portal</a><a href="/attendance" style="color:white;">Attendance</a></div>
+<h1>Student Attendance and Risk Analysis System</h1>
 
         <h2>Register Student</h2>
 
