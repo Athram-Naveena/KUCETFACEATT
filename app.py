@@ -21,13 +21,11 @@ DEFAULT_TEACHER_PASS = os.environ.get("TEACHER_PASS", "kucet123")
 DETECTOR_MODEL = "models/face_detection_yunet_2023mar.onnx"
 RECOGNIZER_MODEL = "models/face_recognition_sface_2021dec.onnx"
 
-
-def get_models():
-    if os.path.exists(DETECTOR_MODEL) and os.path.exists(RECOGNIZER_MODEL):
-        det = cv2.FaceDetectorYN.create(DETECTOR_MODEL, "", (320, 320), 0.7, 0.3, 5000)
-        rec = cv2.FaceRecognizerSF.create(RECOGNIZER_MODEL, "")
-        return det, rec
-    return None, None
+DETECTOR = None
+RECOGNIZER = None
+if os.path.exists(DETECTOR_MODEL) and os.path.exists(RECOGNIZER_MODEL):
+    DETECTOR = cv2.FaceDetectorYN.create(DETECTOR_MODEL, "", (320, 320), 0.7, 0.3, 5000)
+    RECOGNIZER = cv2.FaceRecognizerSF.create(RECOGNIZER_MODEL, "")
 
 
 def create_database():
@@ -109,13 +107,14 @@ def home():
 <html>
 <head>
     <title>KUCET Face Attendance System</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body {{ font-family: Arial, sans-serif; background: #f0f4f8; padding: 30px; text-align: center; }}
+        body {{ font-family: Arial, sans-serif; background: #f0f4f8; padding: 20px; text-align: center; }}
         h1 {{ color: #243b55; }}
         .container {{ display: flex; justify-content: center; flex-wrap: wrap; gap: 25px; margin-top: 30px; }}
-        .portal {{ background: white; padding: 30px; width: 260px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }}
+        .portal {{ background: white; padding: 30px; width: 270px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }}
         .btn {{ display: inline-block; background: #243b55; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 6px 4px; }}
-        .btn-outline {{ display: inline-block; background: #198754; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 6px 4px; }}
+        .btn-green {{ display: inline-block; background: #198754; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 6px 4px; }}
     </style>
 </head>
 <body>
@@ -125,9 +124,9 @@ def home():
     <div class="container">
         <div class="portal">
             <h2>Teacher Portal</h2>
-            <p>Register faculty account, manage students, scan class faces, and export reports.</p>
+            <p>Register faculty account, add/remove students, scan class faces, and export reports.</p>
             <a class="btn" href="/teacher_login">Teacher Login</a>
-            <a class="btn-outline" href="/teacher_register">New Teacher</a>
+            <a class="btn-green" href="/teacher_register">New Teacher</a>
         </div>
         <div class="portal">
             <h2>Parent Portal</h2>
@@ -166,8 +165,11 @@ def teacher_register():
 
     return f"""<!DOCTYPE html>
 <html>
-<head><title>Register New Teacher</title></head>
-<body style="font-family:Arial;background:#f0f4f8;padding:30px;text-align:center;">
+<head>
+    <title>Register New Teacher</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family:Arial;background:#f0f4f8;padding:20px;text-align:center;">
     {get_nav()}
     <div style="background:white;padding:30px;max-width:400px;margin:30px auto;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
         <h2>Register New Teacher</h2>
@@ -177,7 +179,7 @@ def teacher_register():
             <input type="text" name="department" placeholder="Department (e.g. ECE)" required style="width:90%;padding:10px;margin:8px 0;"><br>
             <input type="text" name="username" placeholder="Create Username" required style="width:90%;padding:10px;margin:8px 0;"><br>
             <input type="password" name="password" placeholder="Create Password" required style="width:90%;padding:10px;margin:8px 0;"><br>
-            <button type="submit" style="background:#198754;color:white;padding:10px 25px;border:none;border-radius:6px;cursor:pointer;margin-top:10px;">Create Teacher Account</button>
+            <button type="submit" style="background:#198754;color:white;padding:10px 25px;border:none;border-radius:6px;cursor:pointer;margin-top:10px;font-weight:bold;">Create Teacher Account</button>
         </form>
         <p style="margin-top:15px;">Already registered? <a href="/teacher_login">Login here</a></p>
     </div>
@@ -214,8 +216,11 @@ def teacher_login():
 
     return f"""<!DOCTYPE html>
 <html>
-<head><title>Teacher Login</title></head>
-<body style="font-family:Arial;background:#f0f4f8;padding:30px;text-align:center;">
+<head>
+    <title>Teacher Login</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family:Arial;background:#f0f4f8;padding:20px;text-align:center;">
     {get_nav()}
     <div style="background:white;padding:30px;max-width:380px;margin:30px auto;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
         <h2>Teacher Login</h2>
@@ -223,7 +228,7 @@ def teacher_login():
         <form method="POST">
             <input type="text" name="username" placeholder="Teacher Username" required style="width:90%;padding:10px;margin:8px 0;"><br>
             <input type="password" name="password" placeholder="Password" required style="width:90%;padding:10px;margin:8px 0;"><br>
-            <button type="submit" style="background:#243b55;color:white;padding:10px 25px;border:none;border-radius:6px;cursor:pointer;margin-top:10px;">Login</button>
+            <button type="submit" style="background:#243b55;color:white;padding:10px 25px;border:none;border-radius:6px;cursor:pointer;margin-top:10px;font-weight:bold;">Login</button>
         </form>
         <p style="margin-top:15px;">New faculty member? <a href="/teacher_register">Register here</a></p>
     </div>
@@ -253,8 +258,11 @@ def parent_login():
 
     return f"""<!DOCTYPE html>
 <html>
-<head><title>Parent Login</title></head>
-<body style="font-family:Arial;background:#f0f4f8;padding:30px;text-align:center;">
+<head>
+    <title>Parent Login</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family:Arial;background:#f0f4f8;padding:20px;text-align:center;">
     {get_nav()}
     <div style="background:white;padding:30px;max-width:380px;margin:30px auto;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
         <h2>Parent Login</h2>
@@ -263,7 +271,7 @@ def parent_login():
         <form method="POST">
             <input type="text" name="student_id" placeholder="Student ID (e.g. 23567T1554)" required style="width:90%;padding:10px;margin:8px 0;"><br>
             <input type="text" name="parent_mobile" placeholder="Registered Parent Mobile Number" required style="width:90%;padding:10px;margin:8px 0;"><br>
-            <button type="submit" style="background:#243b55;color:white;padding:10px 25px;border:none;border-radius:6px;cursor:pointer;margin-top:10px;">View Child Attendance</button>
+            <button type="submit" style="background:#243b55;color:white;padding:10px 25px;border:none;border-radius:6px;cursor:pointer;margin-top:10px;font-weight:bold;">View Child Attendance</button>
         </form>
     </div>
 </body>
@@ -304,12 +312,14 @@ def register_student():
 <html>
 <head>
     <title>Manage &amp; Register Students</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body {{ font-family: Arial, sans-serif; margin: 30px; background: #f4f6f9; }}
+        body {{ font-family: Arial, sans-serif; margin: 20px; background: #f4f6f9; }}
         h1 {{ color: #243b55; }}
         .box {{ background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; }}
         input {{ padding: 10px; margin: 5px; }}
         button {{ padding: 10px 18px; background: #243b55; color: white; border: none; border-radius: 5px; cursor: pointer; }}
+        .table-wrap {{ overflow-x: auto; }}
         table {{ border-collapse: collapse; width: 100%; background: white; }}
         th, td {{ padding: 12px; border: 1px solid #ddd; text-align: left; }}
     </style>
@@ -327,7 +337,8 @@ def register_student():
             <input name="parent_mobile" placeholder="Parent Mobile Number" required>
             <input type="hidden" name="face_image" id="face_image">
             <div style="margin:15px 0;">
-                <video id="video" width="320" height="240" autoplay playsinline style="border:2px solid #243b55;border-radius:8px;"></video>
+                <button type="button" onclick="toggleRegCamera()" style="background:#198754;margin-bottom:10px;">Switch Front / Back Camera</button><br>
+                <video id="video" width="320" height="240" autoplay playsinline style="border:2px solid #243b55;border-radius:8px;max-width:100%;"></video>
                 <canvas id="canvas" width="320" height="240" style="display:none;"></canvas><br>
                 <button type="button" onclick="captureAndSubmit()">Capture Face &amp; Register Student</button>
                 <p id="camStatus" style="color:#555;">Allow camera access to capture student face during registration.</p>
@@ -336,33 +347,50 @@ def register_student():
     </div>
 
     <h2>Enrolled Students ({len(students)})</h2>
-    <table>
-        <tr>
-            <th>Student ID</th>
-            <th>Name</th>
-            <th>Department</th>
-            <th>Parent Name</th>
-            <th>Parent Mobile</th>
-            <th>Face Status</th>
-            <th>Action</th>
-        </tr>
-        {rows}
-    </table>
+    <div class="table-wrap">
+        <table>
+            <tr>
+                <th>Student ID</th>
+                <th>Name</th>
+                <th>Department</th>
+                <th>Parent Name</th>
+                <th>Parent Mobile</th>
+                <th>Face Status</th>
+                <th>Action</th>
+            </tr>
+            {rows}
+        </table>
+    </div>
 
     <script>
         const video = document.getElementById('video');
-        navigator.mediaDevices.getUserMedia({{ video: true }})
-            .then(s => video.srcObject = s)
-            .catch(e => document.getElementById('camStatus').innerText = 'Camera blocked: ' + e);
+        let regFacing = 'environment';
+        let regStream = null;
+
+        function startRegCam(mode) {{
+            if (regStream) regStream.getTracks().forEach(t => t.stop());
+            navigator.mediaDevices.getUserMedia({{ video: {{ facingMode: {{ ideal: mode }} }}, audio: false }})
+                .then(s => {{ regStream = s; video.srcObject = s; }})
+                .catch(e => document.getElementById('camStatus').innerText = 'Camera blocked: ' + e);
+        }}
+
+        function toggleRegCamera() {{
+            regFacing = (regFacing === 'environment') ? 'user' : 'environment';
+            startRegCam(regFacing);
+        }}
 
         function captureAndSubmit() {{
             const form = document.getElementById('regForm');
             if (!form.reportValidity()) return;
             const canvas = document.getElementById('canvas');
-            canvas.getContext('2d').drawImage(video, 0, 0, 320, 240);
+            canvas.width = video.videoWidth || 320;
+            canvas.height = video.videoHeight || 240;
+            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
             document.getElementById('face_image').value = canvas.toDataURL('image/jpeg', 0.9);
             form.submit();
         }}
+
+        startRegCam(regFacing);
     </script>
 </body>
 </html>"""
@@ -491,33 +519,36 @@ def teacher():
             f'<p>Present: {p_cnt} | Absent: {a_cnt}</p>'
             f'<form method="POST"><input type="hidden" name="session_id" value="{s[0]}">'
             f'<input type="hidden" name="action" value="mark_absent">'
-            f'<button type="submit">Mark Remaining Students Absent</button></form></div>'
+            f'<button type="submit" style="padding:8px 14px;background:#243b55;color:white;border:none;border-radius:5px;cursor:pointer;">Mark Remaining Students Absent</button></form></div>'
         )
     conn.close()
 
     opts = "".join(f'<option value="{s[0]}">{s[1]} - {s[2]} - {s[3]}</option>' for s in sessions)
     return f"""<html>
-<head><title>Teacher Portal</title></head>
-<body style="font-family:Arial;text-align:center;padding:30px;background:#f4f6f9;">
+<head>
+    <title>Teacher Portal</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family:Arial;text-align:center;padding:20px;background:#f4f6f9;">
     {get_nav()}
     <h1>Teacher Portal — Welcome, {session.get('teacher_name', 'Teacher')}</h1>
-    <p><a href="/register_student" style="background:#198754;color:white;padding:10px 18px;text-decoration:none;border-radius:6px;font-weight:bold;">Manage Students (Add New / Remove Passed-Out)</a></p>
+    <p><a href="/register_student" style="display:inline-block;background:#198754;color:white;padding:10px 18px;text-decoration:none;border-radius:6px;font-weight:bold;">Manage Students (Add New / Remove Passed-Out)</a></p>
 
     <h2>Create Class Session</h2>
     <form method="POST">
-        <input type="text" name="subject" placeholder="Subject Name" required>
-        <input type="date" name="session_date" required>
-        <input type="time" name="session_time" required>
-        <button type="submit">Create Session</button>
+        <input type="text" name="subject" placeholder="Subject Name" required style="padding:10px;margin:5px;">
+        <input type="date" name="session_date" required style="padding:10px;margin:5px;">
+        <input type="time" name="session_time" required style="padding:10px;margin:5px;">
+        <button type="submit" style="padding:10px 18px;background:#243b55;color:white;border:none;border-radius:5px;cursor:pointer;">Create Session</button>
     </form>
 
     <h2>Start Multi-Student Face Recognition</h2>
     <form action="/start_attendance" method="POST">
-        <select name="session_id" required>
+        <select name="session_id" required style="padding:10px;margin:5px;">
             <option value="">Select Class Session</option>
             {opts}
         </select>
-        <button type="submit">Open HD Camera Scanner</button>
+        <button type="submit" style="padding:10px 18px;background:#243b55;color:white;border:none;border-radius:5px;cursor:pointer;">Open HD Camera Scanner</button>
     </form>
 
     <h2>Sessions &amp; Attendance</h2>
@@ -545,17 +576,25 @@ def scan_page(session_id):
         return redirect(url_for("teacher_login"))
     return f"""<!DOCTYPE html>
 <html>
-<head><title>Live Multi-Student Face Attendance</title></head>
-<body style="font-family:Arial;text-align:center;padding:20px;background:#f4f6f9;">
+<head>
+    <title>Live Multi-Student Face Attendance</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family:Arial;text-align:center;padding:15px;background:#f4f6f9;">
     {get_nav()}
-    <h1>Multi-Student Face Scanner (Session {session_id})</h1>
-    <div style="position:relative;display:inline-block;">
-        <video id="video" width="640" height="480" autoplay playsinline style="border:3px solid #243b55;border-radius:10px;"></video>
-        <canvas id="overlay" width="640" height="480" style="position:absolute;left:0;top:0;pointer-events:none;"></canvas>
+    <h2>Multi-Student Face Scanner (Session {session_id})</h2>
+    <div style="margin-bottom:12px;">
+        <button type="button" onclick="toggleCamera()" style="background:#198754;color:white;padding:10px 18px;border:none;border-radius:6px;font-weight:bold;cursor:pointer;">
+            Switch Front / Back Camera
+        </button>
+    </div>
+    <div style="position:relative;display:inline-block;max-width:100%;">
+        <video id="video" style="width:100%;max-width:640px;height:auto;border:3px solid #243b55;border-radius:10px;" autoplay playsinline></video>
+        <canvas id="overlay" style="position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;"></canvas>
     </div>
     <canvas id="capture" width="1280" height="720" style="display:none;"></canvas>
-    <h2 id="status" style="color:#243b55;">Starting HD camera...</h2>
-    <p><a href="/teacher">Finish &amp; Return to Teacher Portal</a></p>
+    <h3 id="status" style="color:#243b55;">Starting rear camera...</h3>
+    <p><a href="/teacher" style="display:inline-block;background:#243b55;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;">Finish &amp; Return to Teacher Portal</a></p>
 
     <script>
         const video = document.getElementById('video');
@@ -564,34 +603,64 @@ def scan_page(session_id):
         const statusEl = document.getElementById('status');
         const octx = overlay.getContext('2d');
 
-        navigator.mediaDevices.getUserMedia({{ video: {{ width: {{ ideal: 1280 }}, height: {{ ideal: 720 }} }} }}).then(stream => {{
-            video.srcObject = stream;
-            statusEl.innerText = 'Scanning all faces in frame every 2 seconds...';
-            setInterval(() => {{
-                capture.getContext('2d').drawImage(video, 0, 0, 1280, 720);
-                const dataUrl = capture.toDataURL('image/jpeg', 0.85);
-                fetch('/api/recognize', {{
-                    method: 'POST',
-                    headers: {{ 'Content-Type': 'application/json' }},
-                    body: JSON.stringify({{ session_id: {session_id}, image: dataUrl }})
-                }}).then(r => r.json()).then(res => {{
-                    statusEl.innerText = res.message;
-                    octx.clearRect(0, 0, overlay.width, overlay.height);
-                    if (res.boxes) {{
-                        const sx = overlay.width / 1280;
-                        const sy = overlay.height / 720;
-                        res.boxes.forEach(b => {{
-                            octx.strokeStyle = b.matched ? '#00c853' : '#ff1744';
-                            octx.lineWidth = 3;
-                            octx.strokeRect(b.x * sx, b.y * sy, b.w * sx, b.h * sy);
-                            octx.fillStyle = b.matched ? '#00c853' : '#ff1744';
-                            octx.font = 'bold 14px Arial';
-                            octx.fillText(b.label, b.x * sx, Math.max(16, b.y * sy - 6));
+        let currentFacingMode = 'environment';
+        let currentStream = null;
+        let scanTimer = null;
+
+        function startCamera(mode) {{
+            if (currentStream) {{
+                currentStream.getTracks().forEach(t => t.stop());
+            }}
+            navigator.mediaDevices.getUserMedia({{
+                video: {{ facingMode: {{ ideal: mode }}, width: {{ ideal: 1280 }}, height: {{ ideal: 720 }} }},
+                audio: false
+            }}).then(stream => {{
+                currentStream = stream;
+                video.srcObject = stream;
+                statusEl.innerText = 'Scanning (' + (mode === 'environment' ? 'Back Camera' : 'Front Camera') + ') every 2 seconds...';
+
+                if (!scanTimer) {{
+                    scanTimer = setInterval(() => {{
+                        if (!video.videoWidth) return;
+                        overlay.width = video.clientWidth;
+                        overlay.height = video.clientHeight;
+                        capture.width = video.videoWidth;
+                        capture.height = video.videoHeight;
+
+                        capture.getContext('2d').drawImage(video, 0, 0, capture.width, capture.height);
+                        const dataUrl = capture.toDataURL('image/jpeg', 0.85);
+
+                        fetch('/api/recognize', {{
+                            method: 'POST',
+                            headers: {{ 'Content-Type': 'application/json' }},
+                            body: JSON.stringify({{ session_id: {session_id}, image: dataUrl }})
+                        }}).then(r => r.json()).then(res => {{
+                            statusEl.innerText = res.message;
+                            octx.clearRect(0, 0, overlay.width, overlay.height);
+                            if (res.boxes) {{
+                                const sx = overlay.width / capture.width;
+                                const sy = overlay.height / capture.height;
+                                res.boxes.forEach(b => {{
+                                    octx.strokeStyle = b.matched ? '#00c853' : '#ff1744';
+                                    octx.lineWidth = 3;
+                                    octx.strokeRect(b.x * sx, b.y * sy, b.w * sx, b.h * sy);
+                                    octx.fillStyle = b.matched ? '#00c853' : '#ff1744';
+                                    octx.font = 'bold 14px Arial';
+                                    octx.fillText(b.label, b.x * sx, Math.max(16, b.y * sy - 6));
+                                }});
+                            }}
                         }});
-                    }}
-                }});
-            }}, 2000);
-        }}).catch(err => statusEl.innerText = 'Camera error: ' + err);
+                    }}, 2000);
+                }}
+            }}).catch(err => statusEl.innerText = 'Camera error: ' + err);
+        }}
+
+        function toggleCamera() {{
+            currentFacingMode = (currentFacingMode === 'environment') ? 'user' : 'environment';
+            startCamera(currentFacingMode);
+        }}
+
+        startCamera(currentFacingMode);
     </script>
 </body>
 </html>"""
@@ -608,8 +677,7 @@ def api_recognize():
     if "," not in img_data:
         return jsonify({"message": "No frame received", "boxes": []})
 
-    detector, recognizer = get_models()
-    if detector is None:
+    if DETECTOR is None or RECOGNIZER is None:
         return jsonify({"message": "ONNX models missing on server", "boxes": []})
 
     img_bytes = base64.b64decode(img_data.split(",", 1)[1])
@@ -630,17 +698,17 @@ def api_recognize():
         ref = cv2.imread(os.path.join(FACE_DIR, fn))
         if ref is None:
             continue
-        detector.setInputSize((ref.shape[1], ref.shape[0]))
-        _, rfaces = detector.detect(ref)
+        DETECTOR.setInputSize((ref.shape[1], ref.shape[0]))
+        _, rfaces = DETECTOR.detect(ref)
         if rfaces is not None and len(rfaces) >= 1:
-            known.setdefault(sid, []).append(recognizer.feature(recognizer.alignCrop(ref, rfaces[0])))
+            known.setdefault(sid, []).append(RECOGNIZER.feature(RECOGNIZER.alignCrop(ref, rfaces[0])))
 
     if not known:
         conn.close()
         return jsonify({"message": "No registered face photos found.", "boxes": []})
 
-    detector.setInputSize((frame.shape[1], frame.shape[0]))
-    _, faces = detector.detect(frame)
+    DETECTOR.setInputSize((frame.shape[1], frame.shape[0]))
+    _, faces = DETECTOR.detect(frame)
     if faces is None or len(faces) == 0:
         conn.close()
         return jsonify({"message": "No faces detected in frame...", "boxes": []})
@@ -649,10 +717,10 @@ def api_recognize():
     boxes = []
     for f in faces:
         x, y, w, h = map(int, f[:4])
-        feat = recognizer.feature(recognizer.alignCrop(frame, f))
+        feat = RECOGNIZER.feature(RECOGNIZER.alignCrop(frame, f))
         best_id, best_score = None, -1.0
         for sid, feats in known.items():
-            score = max(recognizer.match(feat, sf, cv2.FaceRecognizerSF_FR_COSINE) for sf in feats)
+            score = max(RECOGNIZER.match(feat, sf, cv2.FaceRecognizerSF_FR_COSINE) for sf in feats)
             if score > best_score:
                 best_score, best_id = score, sid
         if best_score >= 0.363 and best_id:
@@ -736,8 +804,11 @@ def parent():
 
     return f"""<!DOCTYPE html>
 <html>
-<head><title>Parent Portal</title></head>
-<body style="font-family:Arial;text-align:center;padding:30px;background:#f0f4f8;">
+<head>
+    <title>Parent Portal</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family:Arial;text-align:center;padding:20px;background:#f0f4f8;">
     {get_nav()}
     <h1>Parent Attendance Dashboard</h1>
     <div style="background:white;padding:25px;margin:20px auto;max-width:480px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
