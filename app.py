@@ -496,7 +496,7 @@ def start_attendance():
     subprocess.Popen(
     [sys.executable, "recognize_faces.py", str(session_id)],
     cwd=os.path.dirname(os.path.abspath(__file__)),
-    creationflags=subprocess.CREATE_NEW_CONSOLE
+    creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
 )
 
     return redirect(url_for("teacher"))
