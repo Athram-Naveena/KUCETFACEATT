@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Student Attendance System</title>
+    <style>
+        body {
+            font-family: Arial;
+            text-align: center;
+            background: #f0f4f8;
+            padding: 30px;
+        }
+
+        h1 {
+            color: #243b55;
+        }
+
+        .container {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .portal {
+            background: white;
+            padding: 25px;
+            width: 220px;
+            border-radius: 12px;
+        }
+
+        a {
+            display: inline-block;
+            background: #243b55;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Student Attendance and Risk Analysis System</h1>
+    <p>Select your portal</p>
+
+    <div class="container">
+
+        <div class="portal">
+            <h2>Teacher Portal</h2>
+            <p>Manage classes and attendance.</p>
+            <a href="/teacher">Open Portal</a>
+        </div>
+
+        <div class="portal">
+            <h2>Student Portal</h2>
+            <p>View attendance and risk alerts.</p>
+            <a href="/student">Open Portal</a>
+        </div>
+
+        <div class="portal">
+            <h2>Parent Portal</h2>
+            <p>Monitor your child's attendance.</p>
+            <a href="/parent">Open Portal</a>
+        </div>
+
+    </div>
+
+</body>
+</html>
